@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+ *   Copyright (C) 2019 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,21 +31,80 @@
  *
  ****************************************************************************/
 
-#include "px4_init.h"
+#pragma once
 
-#include <px4_config.h>
-#include <px4_defines.h>
-#include <drivers/drv_hrt.h>
-#include <lib/parameters/param.h>
-#include <px4_work_queue/WorkQueueManager.hpp>
+#include <pthread.h>
 
-int px4_platform_init(void)
+template<class T, size_t N>
+class BlockingQueue
 {
-	hrt_init();
+public:
 
-	param_init();
+	BlockingQueue()
+	{
+		pthread_mutex_init(&_mutex, nullptr);
+		pthread_cond_init(&_cv, nullptr);
+	}
 
-	px4::work_queue_manager_start();
+	~BlockingQueue()
+	{
+		pthread_mutex_destroy(&_mutex);
+		pthread_cond_destroy(&_cv);
+	}
 
-	return PX4_OK;
-}
+	bool empty() const { return _count == 0; }
+	bool full() const { return _count == N; }
+
+	bool push(T newItem)
+	{
+		pthread_mutex_lock(&_mutex);
+
+		if (full()) {
+			pthread_mutex_unlock(&_mutex);
+			return false;
+		}
+
+		const bool was_empty = empty();
+
+		_data[_tail] = newItem;
+		_tail = (_tail + 1) % N;
+		_count++;
+
+		pthread_mutex_unlock(&_mutex);
+
+		if (was_empty) {
+			pthread_cond_signal(&_cv);
+		}
+
+		return true;
+	}
+
+	T pop()
+	{
+		pthread_mutex_lock(&_mutex);
+
+		if (empty()) {
+			pthread_cond_wait(&_cv, &_mutex);
+		}
+
+		T ret = _data[_head];
+		_head = (_head + 1) % N;
+		_count--;
+
+		pthread_mutex_unlock(&_mutex);
+
+		return ret;
+	}
+
+private:
+
+	pthread_mutex_t _mutex;
+	pthread_cond_t _cv;
+
+	T _data[N];
+	size_t _count{0};
+
+	size_t _head{0};
+	size_t _tail{0};
+
+};

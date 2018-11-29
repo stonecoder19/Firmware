@@ -1,0 +1,126 @@
+/****************************************************************************
+ *
+ *   Copyright (c) 2019 PX4 Development Team. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ * 3. Neither the name PX4 nor the names of its contributors may be
+ *    used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+ * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+ * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ ****************************************************************************/
+
+#pragma once
+
+#include <stdint.h>
+
+namespace px4
+{
+
+class WorkQueue; // forward declaration
+
+struct wq_config {
+	const char *name;
+	uint16_t stacksize;
+	int8_t priority; // relative to max
+};
+
+// work queues
+enum PX4_WQS {
+
+	rate_ctrl = 0,	// PX4 inner loop
+
+	SPI1,
+	SPI2,
+	SPI3,
+	SPI4,
+	SPI5,
+	SPI6,
+
+	I2C1,
+	I2C2,
+	I2C3,
+	I2C4,
+
+	hp_default, // PX4 misc
+	lp_default, // PX4 misc
+
+	test1,		// testing
+	test2,		// testing
+};
+
+// TODO: set priorities appropriately for linux, macos, qurt (unify with px4_tasks.h)
+static constexpr wq_config wq_configurations[] = {
+
+	[rate_ctrl] = { "wq:rate_ctrl", 1500, 0 },  // PX4 inner loop highest priority
+
+	[SPI1] = { "wq:SPI1", 1200, -1 },
+	[SPI2] = { "wq:SPI2", 1200, -2 },
+	[SPI3] = { "wq:SPI3", 1200, -3 },
+	[SPI4] = { "wq:SPI4", 1200, -4 },
+	[SPI5] = { "wq:SPI5", 1200, -5 },
+	[SPI6] = { "wq:SPI6", 1200, -6 },
+
+	[I2C1] = { "wq:I2C1", 1200, -7 },
+	[I2C2] = { "wq:I2C2", 1200, -8 },
+	[I2C3] = { "wq:I2C3", 1200, -9 },
+	[I2C4] = { "wq:I2C4", 1200, -10 },
+
+	[hp_default] = { "wq:hp_default", 1500, -11 },
+	[lp_default] = { "wq:lp_default", 1500, -50 },
+
+	[test1] = { "wq:test1", 800, 0 },
+	[test2] = { "wq:test2", 800, 0 },
+};
+
+
+
+/**
+ * Start the work queue manager task.
+ */
+int work_queue_manager_start();
+
+/**
+ * Stop the work queue manager task.
+ */
+int work_queue_manager_stop();
+
+/**
+ * Create (or find) a work queue with a particular configuration.
+ *
+ * @param new_wq		The work queue configuration (see WorkQueueManager.hpp).
+ * @return		A pointer to the WorkQueue, or nullptr on failure.
+ */
+WorkQueue *work_queue_create(const wq_config &new_wq);
+
+/**
+ * Map a PX4 driver device id to a work queue (by sensor bus).
+ *
+ * @param device_id		The PX4 driver's device id.
+ * @return		A work queue configuration.
+ */
+const wq_config &device_bus_to_wq(uint32_t device_id);
+
+
+} // namespace px4
